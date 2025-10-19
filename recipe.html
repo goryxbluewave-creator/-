@@ -1,0 +1,128 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>五十音順レシピ帳</title>
+<style>
+body { font-family: sans-serif; padding: 10px; background: #f0f0f5; color: #333; }
+h1 { text-align: center; margin-bottom: 20px; color:#444; }
+input, button, textarea { width: 100%; padding: 8px; margin-bottom: 10px; font-size: 16px; box-sizing:border-box; }
+button { cursor: pointer; background:#4CAF50; color:white; border:none; border-radius:5px; }
+button:hover { background:#45a049; }
+.recipe-card { background:white; border-radius:10px; padding:15px; margin-bottom:15px; box-shadow:0 2px 6px rgba(0,0,0,0.15); position:relative; }
+.recipe-card h3 { margin:0 0 5px 0; color:#333; }
+.photos img { margin:5px 5px 0 0; width:80px; height:80px; border-radius:5px; object-fit:cover; }
+.ingredients { margin-top:5px; font-size:14px; color:#555; }
+.delete-btn { position:absolute; top:10px; right:10px; background:#f44336; color:white; border:none; border-radius:5px; padding:4px 8px; }
+.delete-btn:hover { background:#e53935; }
+@media print { 
+  body { background:#fff; color:#000; }
+  input, button, textarea { display:none; } 
+}
+</style>
+</head>
+<body>
+
+<h1>五十音順レシピ帳</h1>
+
+<input type="text" id="search" placeholder="レシピ検索…">
+
+<h3>レシピ追加</h3>
+<input type="text" id="recipeName" placeholder="レシピ名">
+<textarea id="ingredients" placeholder="材料をカンマ区切りで入力"></textarea>
+<input type="file" id="photoInput" multiple accept="image/*">
+<button id="addRecipe">追加</button>
+
+<div id="app"></div>
+
+<script>
+let recipes = JSON.parse(localStorage.getItem('recipes') || '[]');
+
+// 表示関数
+function displayRecipes(filter='') {
+  const app = document.getElementById('app');
+  app.innerHTML = '';
+  recipes
+    .filter(r => r.name.includes(filter))
+    .forEach((r,index) => {
+      const div = document.createElement('div');
+      div.className = 'recipe-card';
+      const photosHTML = r.photos.map(url=>`<img src="${url}">`).join('');
+      const ingredientsHTML = r.ingredients.length > 0 ? `<div class="ingredients">材料: ${r.ingredients.join(', ')}</div>` : '';
+      div.innerHTML = `
+        <button class="delete-btn" onclick="deleteRecipe(${index})">削除</button>
+        <h3>${r.name}</h3>
+        <div class="photos">${photosHTML}</div>
+        ${ingredientsHTML}
+      `;
+      app.appendChild(div);
+    });
+}
+
+// 検索機能
+document.getElementById('search').addEventListener('input', e=>{
+  displayRecipes(e.target.value);
+});
+
+// 削除機能
+function deleteRecipe(index){
+  if(confirm("本当に削除しますか？")){
+    recipes.splice(index,1);
+    saveRecipes();
+    displayRecipes(document.getElementById('search').value);
+  }
+}
+
+// 保存関数
+function saveRecipes(){
+  localStorage.setItem('recipes', JSON.stringify(recipes));
+}
+
+// 追加ボタン
+document.getElementById('addRecipe').addEventListener('click', ()=>{
+  const name = document.getElementById('recipeName').value.trim();
+  const ingredientsText = document.getElementById('ingredients').value.trim();
+  const files = document.getElementById('photoInput').files;
+  if(!name) return alert("レシピ名を入力してな");
+
+  const ingredients = ingredientsText ? ingredientsText.split(',').map(s=>s.trim()) : [];
+  
+  const photos = [];
+  if(files.length === 0){
+    // 写真なしでも追加可能
+    recipes.push({name, ingredients, photos});
+    recipes.sort((a,b)=>a.name.localeCompare(b.name,'ja'));
+    saveRecipes();
+    displayRecipes();
+    document.getElementById('recipeName').value = '';
+    document.getElementById('ingredients').value = '';
+    return;
+  }
+
+  // ファイルを読み込んでDataURL化
+  let loaded = 0;
+  for(let i=0;i<files.length;i++){
+    const reader = new FileReader();
+    reader.onload = (e)=>{
+      photos.push(e.target.result);
+      loaded++;
+      if(loaded===files.length){
+        recipes.push({name, ingredients, photos});
+        recipes.sort((a,b)=>a.name.localeCompare(b.name,'ja'));
+        saveRecipes();
+        displayRecipes();
+        document.getElementById('recipeName').value = '';
+        document.getElementById('ingredients').value = '';
+        document.getElementById('photoInput').value = '';
+      }
+    };
+    reader.readAsDataURL(files[i]);
+  }
+});
+
+// 初期表示
+displayRecipes();
+</script>
+</body>
+</html>
